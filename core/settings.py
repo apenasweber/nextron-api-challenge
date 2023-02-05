@@ -1,12 +1,16 @@
-from pydantic import BaseSettings
+from pydantic import BaseModel
+import os
 
-class Settings(BaseSettings):
+class Settings(BaseModel):
     db_user: str
     db_password: str
     db_host: str
     db_name: str
-    
-    class Config:
-        env_prefix = 'DATABASE_'
 
-settings = Settings()
+
+settings = Settings(
+    db_user='postgres',
+    db_password='password',
+    db_host='localhost',
+    db_name='nextron'
+)
