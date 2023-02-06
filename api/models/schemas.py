@@ -1,4 +1,4 @@
-from typing import List
+from typing import Any, List
 
 from pydantic import BaseModel
 
@@ -9,7 +9,8 @@ class ExpressionIn(BaseModel):
 
 class ExpressionOut(BaseModel):
     expression: str
-    result: float
+    result: Any
+    id = int
 
 
 class ExpressionListOut(BaseModel):
