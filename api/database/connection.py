@@ -1,17 +1,16 @@
-from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-
+from api.database.retry_logic import create_engine_with_retry
 from api.core.settings import settings
 
 DATABASE_URL = settings.POSTGRES_URL
 
-engine = create_async_engine(DATABASE_URL)
+engine = engine = create_engine_with_retry(DATABASE_URL)
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
-async_session = sessionmaker(engine, class_=AsyncSession)
-
-async def get_db():
-    db = async_session()
+def get_db():
+    db = SessionLocal()
     try:
         yield db
     finally:
-        await db.close()
+        db.close()

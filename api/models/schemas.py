@@ -8,9 +8,9 @@ class ExpressionIn(BaseModel):
 
 
 class ExpressionOut(BaseModel):
+    id = int
     expression: str
     result: Any
-    id = int
 
 
 class ExpressionListOut(BaseModel):

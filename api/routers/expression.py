@@ -1,76 +1,74 @@
 from typing import List
-
-from sqlalchemy import text
-from pydantic import BaseModel
+import ast
+from sqlalchemy import text, select
 
 from fastapi import APIRouter, Depends, HTTPException
-
 from sqlalchemy.orm import Session
 
 from api.database.connection import get_db
 from api.models.schemas import ExpressionIn, ExpressionOut, ExpressionListOut
-
-from api.core.settings import settings
-from api.database.create_table import create_database
+from api.models.expression import Expression
 from api.auth.auth_bearer import JWTBearer
+
+import logging
 
 router = APIRouter(
     dependencies=[Depends(JWTBearer())],
     tags=["expressions"]
 )
 
+logger = logging.getLogger(__name__)
+
+def _evaluate_expression(expression: str) -> bool:
+    try:
+        parsed = ast.parse(expression, mode='eval')
+        result = eval(compile(parsed, filename='<ast>', mode='eval'))
+    except Exception as info:
+        logger.error(f"Invalid expression: {info}")
+        raise HTTPException(status_code=400, detail=f"Invalid expression: {info}")
+
+    return result
+
 
 @router.get("/", response_model=ExpressionListOut)
-async def get_expressions(db: Session = Depends(get_db)):
+def get_expressions(db: Session = Depends(get_db)):
     try:
-        results = await db.execute(text("SELECT * FROM expressions"))
-        if expressions := [
-        ExpressionOut(expression=e[0], result=e[1], id=e[2])
-            for e in results.fetchall()
-        ]:
-            return ExpressionListOut(expressions=expressions)
-
-        else:
-            raise HTTPException(status_code=404, detail="No expressions found")
-    except Exception as e:
+        query = text("SELECT id, expression, result FROM expression")
+        results = db.execute(query).all()
+        return {"expressions": [{"id": r[0], "expression": r[1], "result": r[2]} for r in results]}
+    except Exception:
         raise HTTPException(status_code=404, detail="No expressions found")
 
 
 
-
 @router.post("/", response_model=ExpressionOut)
-async def create_expression(
+def create_expression(
     expression_in: ExpressionIn, db: Session = Depends(get_db)):
     expression = expression_in.expression
+    result = _evaluate_expression(expression)
     try:
-        await create_database()
-        result = eval(expression)
-        await db.execute(
-            text(
-                f"INSERT INTO expressions (expression, result) VALUES ('{expression}', {result})"
-            )
+        db.execute(
+            text("INSERT INTO expression (expression, result) VALUES (:expression, :result)"),
+            {"expression": expression, "result": result}
         )
-        await db.commit()
+        db.commit()
+    except Exception as info:
+        logger.error(f"Error inserting expression: {info}")
+        raise HTTPException(status_code=500, detail=f"Error inserting expression: {info}")
 
-        return ExpressionOut(expression=expression, result=result)
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Invalid expression: {e}")
+    return ExpressionOut(expression=expression, result=result)
 
 
 @router.delete("/{expression_id}")
-async def delete_expression(expression_id: int, db: Session = Depends(get_db)):
+def delete_expression(expression_id: int, db: Session = Depends(get_db)):
     try:
-        await db.execute(text(f"DELETE FROM expressions WHERE id = {expression_id}"))
-        await db.commit()
+        query = text(f"SELECT id FROM expression WHERE id = {expression_id}")
+        result = db.execute(query).fetchall()
+        if result == []:
+            raise HTTPException(status_code=404, detail="Expression not found")
+        db.execute(text(f"DELETE FROM expression WHERE id = {expression_id}"))
+        db.commit()
         return {"message": "Expression successfully deleted"}
-    except Exception as e:
-        raise HTTPException(status_code=404, detail="Expression not found")
+    except Exception:
+        raise HTTPException(status_code=400, detail="Error deleting expression")
 
-
-@router.post("/evaluate")
-async def evaluate_expression(expression: str):
-    try:
-        result = eval(expression)
-    except:
-        raise HTTPException(status_code=400, detail="Invalid expression")
-    return {"result": result}
