@@ -12,6 +12,8 @@ class ExpressionOut(BaseModel):
     expression: str
     result: Any
 
+class ExpressionCreate(BaseModel):
+    id = int
 
 class ExpressionListOut(BaseModel):
     expressions: List[ExpressionOut]

@@ -21,7 +21,7 @@ def upgrade() -> None:
         'expression',
         sa.Column('id', sa.Integer, primary_key=True),
         sa.Column('expression', sa.String(256), nullable=False),
-        sa.Column('result', sa.Float, nullable=False)
+        sa.Column('result', sa.Boolean, nullable=False)
     )
 
 
